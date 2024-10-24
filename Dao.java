@@ -86,6 +86,7 @@ import com.synchroteam.utils.DateFormatUtils;
 import com.synchroteam.utils.KEYS;
 import com.synchroteam.utils.Logger;
 import com.synchroteam.utils.ReportsItems;
+//import com.synchroteam.utils.S3Uploader;
 import com.synchroteam.utils.SharedPref;
 import com.synchroteam.utils.SynchroteamUitls;
 import com.synchroteam.utils.DialogUtils;
@@ -102,8 +103,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.Format;
 import java.text.ParseException;
@@ -143,7 +142,7 @@ import static com.synchroteam.utils.DateFormatUtils.subtractTwoDateTimeStamps;
 @SuppressLint("SimpleDateFormat")
 public class Dao {
 
-    private static final String PREVIOUS_VERSION = "/#/54";
+    private static final String PREVIOUS_VERSION = "/#/55";
     private static final String TAG = "Dao";
     /**
      * The script.
@@ -158,9 +157,12 @@ public class Dao {
 //    public static String dbName = "STDB.ulj";
 
     //for devel version 55
-    public static String script = "st_ver55".trim();
-    public static String dbName = "STDB.ulj";
+//    public static String script = "st_ver55".trim();
+//    public static String dbName = "STDB.ulj";
 
+    // for devel vversion 58
+    public static String script = "st_ver58".trim();
+    public static String dbName = "STDB.ulj";
     private static Tables t = new Tables();
 
     /**
@@ -227,6 +229,8 @@ public class Dao {
 
     private TableOrder tableOrder;
     private Boolean firstSynch = false;
+
+    public String awsUrl = "";
 
     /**
      * Instantiates a new dao object.
@@ -2940,18 +2944,6 @@ public class Dao {
 
     //v51.0.3 devel
     public synchronized Vector<CommonJobBean> getAllInterventionCompletedNewNew(String lastDate) {
-//        try {
-//            int cdStatus = getStatus("69063922-edc6-11e8-8000-d049fd69af7f");
-//            if (cdStatus != -1) {
-//                Logger.log(TAG, "cdStatus of job 69063922-edc6-11e8-8000-d049fd69af7f----->" + cdStatus);
-//            } else {
-//                Logger.log(TAG, "job 69063922-edc6-11e8-8000-d049fd69af7f not found----->" + cdStatus);
-//            }
-////            checkReportAll();
-//
-//        } catch (Exception e) {
-//            Logger.log(TAG, "Exception while getting all reports----->" + e);
-//        }
         Vector<CommonJobBean> tmp = new Vector<CommonJobBean>();
         String query;
         PreparedStatement stmt = null;
@@ -4013,44 +4005,63 @@ public class Dao {
             connDao = DatabaseManager.connect(config);
 
             String login = SharedPref.getLoginUSer(context);
-            // For migrating to 55
-            if ((getUserScript().equals("st_ver54")) && Dao.script.equals("st_ver55")) {
+            // For migration to 58
+            if ((getUserScript().equals("st_ver55")) && Dao.script.equals("st_ver58")) {
                 SharedPref.setScriptUpdated(true, context);
 
                 Logger.log(TAG, "SCRIPT UPDATION LOGIN USER GET =====>" + login);
                 String userName = getUserLogin(login);
                 SharedPref.setLoginUser(userName, context);
                 Logger.log(TAG, "SCRIPT UPDATION LOGIN USER=====>" + userName);
-                Logger.log(TAG, "SCRIPT UPDATION LOGIN USER=====> st_ver54");
+                Logger.log(TAG, "SCRIPT UPDATION LOGIN USER=====> st_ver55");
 
-                migrateV54ToV55();
-
-                setUserScript(Dao.script);
-
-            }else if ((getUserScript().equals("st_ver53")) && Dao.script.equals("st_ver55")) {
-                SharedPref.setScriptUpdated(true, context);
-                String userName = getUserLogin(login);
-                SharedPref.setLoginUser(userName, context);
-                Logger.log(TAG, "SCRIPT UPDATION LOGIN USER=====>" + userName);
-
-                migrateV53ToV54();
-                migrateV54ToV55();
+                migrateV55ToV58();
 
                 setUserScript(Dao.script);
 
-            }  else if ((getUserScript().equals("st_ver52")) && Dao.script.equals("st_ver54")) {
-                // For migrating from 52 to 54
-                SharedPref.setScriptUpdated(true, context);
-                String userName = getUserLogin(login);
-                SharedPref.setLoginUser(userName, context);
+            }else
+                // For migrating to 55
+                if ((getUserScript().equals("st_ver54")) && Dao.script.equals("st_ver58")) {
+                    SharedPref.setScriptUpdated(true, context);
 
-                migrateV52ToV53();
-                migrateV53ToV54();
-                migrateV54ToV55();
+                    Logger.log(TAG, "SCRIPT UPDATION LOGIN USER GET =====>" + login);
+                    String userName = getUserLogin(login);
+                    SharedPref.setLoginUser(userName, context);
+                    Logger.log(TAG, "SCRIPT UPDATION LOGIN USER=====>" + userName);
+                    Logger.log(TAG, "SCRIPT UPDATION LOGIN USER=====> st_ver54");
 
-                setUserScript(Dao.script);
+                    migrateV54ToV55();
+                    migrateV55ToV58();
 
-            }
+                    setUserScript(Dao.script);
+
+                }else if ((getUserScript().equals("st_ver53")) && Dao.script.equals("st_ver58")) {
+                    SharedPref.setScriptUpdated(true, context);
+                    String userName = getUserLogin(login);
+                    SharedPref.setLoginUser(userName, context);
+                    Logger.log(TAG, "SCRIPT UPDATION LOGIN USER=====>" + userName);
+
+                    migrateV53ToV54();
+                    migrateV54ToV55();
+                    migrateV55ToV58();
+
+                    setUserScript(Dao.script);
+
+                }
+
+//            else if ((getUserScript().equals("st_ver52")) && Dao.script.equals("st_ver54")) {
+//                // For migrating from 52 to 54
+//                SharedPref.setScriptUpdated(true, context);
+//                String userName = getUserLogin(login);
+//                SharedPref.setLoginUser(userName, context);
+//
+//                migrateV52ToV53();
+//                migrateV53ToV54();
+//                migrateV54ToV55();
+//
+//                setUserScript(Dao.script);
+//
+//            }
 
             //Check Indexes on the fly
             executeDDL("CREATE INDEX IF NOT EXISTS TREF_PIECES_NM_PIECE_INDEX ON TREF_PIECES (NM_PIECE)");
@@ -4089,8 +4100,8 @@ public class Dao {
                     executeDDL(t.getT_users());
                     // executeDDL(t.getT_val_custom_fields());
                     executeDDL(t.getTref_categorie_piece());
-//              executeDDL(t.getTref_commentaires_fils());
-//              executeDDL(t.getTref_commentaires_pere());
+//					executeDDL(t.getTref_commentaires_fils());
+//					executeDDL(t.getTref_commentaires_pere());
                     executeDDL(t.getTref_modele_famille());
                     executeDDL(t.getTref_modele_item());
                     executeDDL(t.getTref_modele_rapport());
@@ -4159,6 +4170,7 @@ public class Dao {
                     executeAlter53();
                     migrateV53ToV54();
                     migrateV54ToV55();
+                    migrateV55ToV58();
                     setFirstLine();
 
                     setUserScript(Dao.script);
@@ -4171,6 +4183,21 @@ public class Dao {
 
                 }
             }
+        }
+    }
+
+    private void migrateV55ToV58() {
+        TablesUpdated58 tablesUpdated = new TablesUpdated58();
+        try {
+
+            executeDDL(tablesUpdated.getAlter_T_PHOTOS_PDA());
+            executeDDL(tablesUpdated.getAlter_TREF_GESTION_ACCES_1());
+            executeDDL(tablesUpdated.getAlter_TREF_GESTION_ACCES_2());
+            executeDDL(tablesUpdated.getAlter_TREF_GESTION_ACCES_3());
+            executeDDL(tablesUpdated.getAlter_alter_TREF_FL_WHATSAPP());
+
+        } catch (Exception e) {
+            Logger.printException(e);
         }
     }
 
@@ -6039,7 +6066,6 @@ public class Dao {
         }
         return tmp;
     }
-
     public synchronized byte[] getPhotoImage(String comment, String idInter, int iteration) {
 
         String query = "SELECT PHOTO_PDA FROM T_PHOTOS_PDA WHERE ID_INTERVENTION = '"
@@ -6091,6 +6117,8 @@ public class Dao {
         return image;
 
     }
+
+
 
     public synchronized void deletePhotoImage(String comment, String idInter, int iteration) {
 
@@ -6376,18 +6404,12 @@ public class Dao {
         int res = 0;
         try {
 
-            if (oper == 1) {
+            if (oper == 1)
                 sql = "SELECT FL_SYNC_DEBUT FROM T_CUSTOMERS";//start
-                Logger.log("suspend", "3");
-            }
-            else if (oper == 2) {
+            else if (oper == 2)
                 sql = "SELECT FL_SYNC_REPRENDRE FROM T_CUSTOMERS";//resume
-                Logger.log("suspend","3");
-                }
-            else if (oper == 3) {
+            else if (oper == 3)
                 sql = "SELECT FL_SYNC_SUSPENDRE FROM T_CUSTOMERS";//suspend
-                Logger.log("suspend","3");
-            }
             else if (oper == 4)
                 sql = "SELECT FL_SYNC_FIN FROM T_CUSTOMERS";
             //Connection connection = getConnectionObj();
@@ -8782,8 +8804,9 @@ public class Dao {
                     + "T_INTERVENTIONS.PUBLIC_LINK, "
                     + "T_INTERVENTIONS.PRENOM_CONTACT, "
                     + "T_INTERVENTIONS.EMAIL_CONTACT, "
-                    + "T_CLIENTS.PUBLIC_LINK, "
+                    + "T_CLIENTS.PUBLIC_LINK ,"
                     + "T_CLIENTS.ID_CLIENT "
+
 //                    + "FROM TREF_TYPE_INTERVENTION,TREF_MODELE_RAPPORT,T_INTERVENTIONS  "
                     + "FROM TREF_TYPE_INTERVENTION,T_INTERVENTIONS  "
                     + "LEFT JOIN T_CLIENTS "
@@ -8818,6 +8841,12 @@ public class Dao {
                         cursor.getString(20),
                         cursor.getInt(21));
             }
+
+//            cursor.close();
+//            stmt.close();
+            //connection.commit();
+//            connDao.commit();
+            //connection.release();
         } catch (Exception e) {
             Logger.printException(e);
         } finally {
@@ -8974,7 +9003,7 @@ public class Dao {
         PreparedStatement stmt = null;
         ResultSet cursor = null;
         try {
-            String query = "SELECT ID_PHOTO_PDA, ID_INTERVENTION,COMMENTAIRE_PHOTO_PDA,PHOTO_PDA FROM T_PHOTOS_PDA WHERE ID_INTERVENTION= '"
+            String query = "SELECT ID_PHOTO_PDA, ID_INTERVENTION,COMMENTAIRE_PHOTO_PDA,PHOTO_PDA, URL FROM T_PHOTOS_PDA WHERE ID_INTERVENTION= '"
                     + idInter
                     + "' AND DT_SUPPR is NULL AND COMMENTAIRE_PHOTO_PDA <> 'SIGN_CLIENT' AND "
                     + "COMMENTAIRE_PHOTO_PDA <> 'SIGN_USER' AND COMMENTAIRE_PHOTO_PDA <> 'SIGN_FACTURE' AND "
@@ -9054,6 +9083,15 @@ public class Dao {
 
     }
 
+
+    public synchronized String insertPhoto(String idInter, String file,
+                                           String commentaire, String extension, int iteration) {
+
+        String id = getUniqueId();
+        insertPhoto(idInter, file, commentaire, extension, iteration, id);
+        return id;
+    }
+
     /**
      * Insert photo.
      *
@@ -9063,14 +9101,20 @@ public class Dao {
      * @param extension   the extension
      */
     public synchronized void insertPhoto(String idInter, String file,
-                                         String commentaire, String extension, int iteration) {
+                                         String commentaire, String extension, int iteration, String id) {
+
+
+
+
         PreparedStatement ps = null;
+        // String id = getUniqueId();
+
         try {
             //Connection connection = getConnectionObj();
             ps = getConnectionObj()
                     .prepareStatement("INSERT INTO T_PHOTOS_PDA(ID_PHOTO_PDA,ID_INTERVENTION,PHOTO_PDA,COMMENTAIRE_PHOTO_PDA,EXTENSION,ITERATION) VALUES(?,?,?,?,?,?)");
 
-            ps.set(1, getUniqueId());
+            ps.set(1, id);
             ps.set(2, idInter);
             ps.set(4, toBinary(commentaire));
             ps.set(5, toBinary(extension));
@@ -9112,7 +9156,6 @@ public class Dao {
                 e.printStackTrace();
             }
         }
-
     }
 
     /**
@@ -9534,6 +9577,8 @@ public class Dao {
         return res;
     }
 
+
+
     /**
      * Modifier photo by id.
      *
@@ -9582,7 +9627,7 @@ public class Dao {
      * @param idPhoto the id photo
      */
     public synchronized void deletePhoto(String idPhoto) {
-        executeDDL("DELETE FROM T_PHOTOS_PDA WHERE ID_PHOTO_PDA = '" + idPhoto
+        executeDDL("UPDATE T_PHOTOS_PDA SET PHOTO_PDA = NULL, DT_SUPPR = CURRENT TIMESTAMP WHERE ID_PHOTO_PDA = '" + idPhoto
                 + "'");
     }
 
@@ -16175,7 +16220,9 @@ public class Dao {
 
             //new changes
             String getInvoiceQuotation = "SELECT * FROM T_LIGNES_FACTURE WHERE ID_REMOTE_FACTURE = '"
-                    + id + "'" + " AND DT_SUPPR IS NULL ORDER BY ORDRE";
+                    + id + "'"
+//                    +"AND ID_PIECE ='" + idPiece + "'"
+                    +" AND DT_SUPPR IS NULL ORDER BY ORDRE";
 
 //            String getInvoiceQuotation = "SELECT * FROM T_LIGNES_FACTURE WHERE ID_REMOTE_FACTURE = '"
 //                    + id + "'" + " ORDER BY ORDRE";
@@ -18123,6 +18170,7 @@ public class Dao {
                     + "LEFT OUTER JOIN T_STOCK_PIECES ON TREF_PIECES.ID_PIECE = T_STOCK_PIECES.ID_PIECE "
                     + "WHERE TREF_PIECES.DT_SUPPR IS NULL "
                     + "AND TREF_PIECES.ID_CATEGORIE_PIECE=TREF_CATEGORIE_PIECE.ID_CATEGORIE_PIECE";
+
 
             //Connection connection = getConnectionObj();
             stmt = getConnectionObj().prepareStatement(query);
@@ -20743,6 +20791,7 @@ public class Dao {
 //            getItemFromTMI(idFamille, idInterv);
 
             while (cursor.next()) {
+//                Dao.hybridImageData img = null;
                 byte[] img = null;
 
                 // New changes.
@@ -20754,7 +20803,8 @@ public class Dao {
                 try {
                     if (cursor.getInt(3) == 8) {
                         String comment = "PIC_" + cursor.getInt(1);
-                        img = getPhotoImage(comment, idInterv, iteration);
+                        img = getPhotoImageByte(comment, idInterv, iteration);
+                        awsUrl = getPhotoImageUrl(comment,idInterv,iteration);
                     }
 
                     Item item = new Item(cursor.getInt(1), cursor.getInt(2),
@@ -22041,11 +22091,13 @@ public class Dao {
         return familles;
     }
 
-    /**
-     * Update photo by id.
-     *
-     * @param idPhoto the id photo
-     */
+//    /**
+//     * Update photo by id.
+//     *
+//     * @param idPhoto         the id photo
+//     * @param id_customer
+//     * @param id_intervention
+//     */
     public synchronized void updatePhoto(String idPhoto, byte[] image) {
 
         PreparedStatement ps = null;
@@ -22127,6 +22179,10 @@ public class Dao {
 
     }
 
+    public static class hybridImageData {
+        public String awsUrl;
+        public byte[] res;
+    }
     /**
      * Gets the photo by id.
      *
@@ -22183,6 +22239,7 @@ public class Dao {
         }
         return res;
     }
+
 
     /**
      * Gets public link of site
@@ -27135,6 +27192,7 @@ public class Dao {
                 listInvoiceQuotation.setTotalWithoutTax(cursor.getFloat(9));
                 listInvoiceQuotation.setTax(cursor.getFloat(10));
                 listInvoiceQuotation.setTotalWithTax(cursor.getFloat(11));
+                listInvoiceQuotation.setStrictInvoice(cursor.getBoolean(17));
                 beansArrayList.add(listInvoiceQuotation);
             }
 //            cursor.close();
@@ -33235,7 +33293,7 @@ public class Dao {
 
         return count;
     }
-    
+
     /**
      * New changes for optimization
      * This function Fetches:- 1.All Scheduled Jobs which are sheduled on the
@@ -33843,7 +33901,7 @@ public class Dao {
 
         return currentJobDataBean;
     }
-//good
+    //good
     public synchronized CurrentJobArrayListBean getCurrentJobValues(Date date, int userId,boolean jobCountALone, int sortingOption) {
 
         ArrayList<CommonListBean> currentJobsBeans = new ArrayList<>();
@@ -34415,7 +34473,7 @@ public class Dao {
         return currentJobDataBean;
     }
 
-//good
+    //good
     public synchronized CurrentJobArrayListBean getCurrentJobValuesWithSorting(Date date, int userId) {
 
         ArrayList<CommonListBean> currentJobsBeans = new ArrayList<>();
@@ -34542,116 +34600,116 @@ public class Dao {
             cursor.close();
             stmt.close();
 
-//            query = "SELECT "
-//                    + "ID_INTERVENTION,"// t_intervention
-//                    + "DESCR_INTERVENTION,"// t_intervention
-//                    + "PRIORITE_INTERVENTION,"// t_intervention
-//                    + "DT_DEB_PREV,"// t_intervention
-//                    + "DT_FIN_PREV,"
-//                    + "ADR_INTERV_RUE,"
-//                    + "ADR_INTERV_CP,"
-//                    + "ADR_INTERV_VILLE,"
-//                    + "ADR_INTERV_PAYS,"
-//                    + "CD_STATUT_INTERV,"
-//                    + "NOM_CLIENT_INTERV,"
-//                    + "NOM_CONTACT,"
-//                    + "TEL_CONTACT,"
-//                    + "NOM_SITE_INTERV, "
-//                    + "TREF_TYPE_INTERVENTION.NM_TYPE_INTERVENTION,"
-//                    + "T_INTERVENTIONS.ID_MODELE_RAPPORT,"
-//                    + "T_INTERVENTIONS.ID_USER,"
-//                    + "GPS_POSX_INTERV,"
-//                    + "GPS_POSY_INTERV,"
-//                    + "ADR_INTERV_GLOBALE,"
-//                    + "ADR_INTERV_COMPLEMENT,"
-//                    + "NO_INT_CUST, "
-//                    + "NM_CLIENT_SIGN ,"
-//                    + "NM_TECH_SIGN ,"
-//                    + "NM_FACTURE_SIGN, "
-//                    + "NOM_EQUIPEMENT_INTERV, "
-//                    + "ID_CLIENT, "
-//                    + "ID_SITE, "
-//                    + "ID_EQUIPEMENT,"
-//                    + "MOBILE_CONTACT,"
-//                    + "DT_MEETING, "
-//                    + "REF_CUSTOMER, "
-//                    + "ID_INTERVENTION_MERE, "
-//                    + "DT_DEB_REAL ,"
-//                    + "DT_FIN_REAL, "
-//                    + "DT_CREATE "
-//                    + " FROM T_INTERVENTIONS,TREF_TYPE_INTERVENTION " +
-//                    " WHERE "
-//                    + "T_INTERVENTIONS.ID_TYPE_INTERVENTION=TREF_TYPE_INTERVENTION.ID_TYPE_INTERVENTION " +
-//                    " AND " +
-//                    "ID_USER!=" + userId
-//                    + " AND CD_STATUT_INTERV="
-//                    + KEYS.CurrentJobs.JOB__SUSPENDED
-//                    + " AND (DATEFORMAT(DT_DEB_REAL,'yyyy-mm-dd')='"
-//                    + currentDate + "'" +
-//                    ")";
-//
-//
-//            stmt = getConnectionObj().prepareStatement(query);
-//
-//            cursor = stmt.executeQuery();
-//
-//    //            String headerDate = null;
-//            while (cursor.next()) {
-//                try {
-//                    headerDate = getHeaderDateWithRequiredPattern(
-//                            cursor.getString(4), currentDateFormat,
-//                            dedlineHeaderFormat);
-//                } catch (ParseException e) {
-//                    Logger.printException(e);
-//                }
-//
-//                CommonJobBean currentJobsBean = new CommonJobBean(
-//                        encodeString(cursor.getBytes(1)),
-//                        encodeString(cursor.getBytes(2)),
-//                        cursor.getInt(3),
-//                        cursor.getString(4),
-//                        cursor.getString(5),
-//                        encodeString(cursor.getBytes(6)),
-//                        encodeString(cursor.getBytes(7)),
-//                        encodeString(cursor.getBytes(8)),
-//                        encodeString(cursor.getBytes(9)),
-//                        cursor.getInt(10),
-//                        encodeString(cursor.getBytes(11)),
-//                        encodeString(cursor.getBytes(12)),
-//                        encodeString(cursor.getBytes(13)),
-//                        encodeString(cursor.getBytes(14)),
-//                        encodeString(cursor.getBytes(15)),
-//                        cursor.getInt(16),
-//                        cursor.getInt(17),
-//                        cursor.getString(19),
-//                        cursor.getString(18),
-//                        cursor.getString(20),
-//                        cursor.getString(21),
-//                        cursor.getInt(22),
-//                        cursor.getString(23),
-//                        cursor.getString(24),
-//                        cursor.getString(25),
-//                        encodeString(cursor.getBytes(26)),
-//                        cursor.getInt(27),
-//                        cursor.getInt(28),
-//                        cursor.getInt(29),
-//                        encodeString(cursor.getBytes(30)),
-//                        cursor.getString(31),
-//                        cursor.getString(32),
-//                        cursor.getString(33),
-//                        headerDate,
-//                        cursor.getString(36));
-//
-//                currentJobsBean.setDt_deb_real(cursor.getString(34));
-//                currentJobsBean.setDt_fin_real(cursor.getString(35));
-//                numberOfJob++;
-//                currentJobsBeans.add(currentJobsBean);
-//                Log.e("ArrayCheck","size>>>>>>>>>>>>>>>>>>>> of 2nd call"+currentJobsBeans.size());
-//
-//            }
-//
-//            cursor.close();
-//            stmt.close();
+            query = "SELECT "
+                    + "ID_INTERVENTION,"// t_intervention
+                    + "DESCR_INTERVENTION,"// t_intervention
+                    + "PRIORITE_INTERVENTION,"// t_intervention
+                    + "DT_DEB_PREV,"// t_intervention
+                    + "DT_FIN_PREV,"
+                    + "ADR_INTERV_RUE,"
+                    + "ADR_INTERV_CP,"
+                    + "ADR_INTERV_VILLE,"
+                    + "ADR_INTERV_PAYS,"
+                    + "CD_STATUT_INTERV,"
+                    + "NOM_CLIENT_INTERV,"
+                    + "NOM_CONTACT,"
+                    + "TEL_CONTACT,"
+                    + "NOM_SITE_INTERV, "
+                    + "TREF_TYPE_INTERVENTION.NM_TYPE_INTERVENTION,"
+                    + "T_INTERVENTIONS.ID_MODELE_RAPPORT,"
+                    + "T_INTERVENTIONS.ID_USER,"
+                    + "GPS_POSX_INTERV,"
+                    + "GPS_POSY_INTERV,"
+                    + "ADR_INTERV_GLOBALE,"
+                    + "ADR_INTERV_COMPLEMENT,"
+                    + "NO_INT_CUST, "
+                    + "NM_CLIENT_SIGN ,"
+                    + "NM_TECH_SIGN ,"
+                    + "NM_FACTURE_SIGN, "
+                    + "NOM_EQUIPEMENT_INTERV, "
+                    + "ID_CLIENT, "
+                    + "ID_SITE, "
+                    + "ID_EQUIPEMENT,"
+                    + "MOBILE_CONTACT,"
+                    + "DT_MEETING, "
+                    + "REF_CUSTOMER, "
+                    + "ID_INTERVENTION_MERE, "
+                    + "DT_DEB_REAL ,"
+                    + "DT_FIN_REAL, "
+                    + "DT_CREATE "
+                    + " FROM T_INTERVENTIONS,TREF_TYPE_INTERVENTION " +
+                    " WHERE "
+                    + "T_INTERVENTIONS.ID_TYPE_INTERVENTION=TREF_TYPE_INTERVENTION.ID_TYPE_INTERVENTION " +
+                    " AND " +
+                    "ID_USER!=" + userId
+                    + " AND CD_STATUT_INTERV="
+                    + KEYS.CurrentJobs.JOB__SUSPENDED
+                    + " AND (DATEFORMAT(DT_DEB_REAL,'yyyy-mm-dd')='"
+                    + currentDate + "'" +
+                    ")";
+
+
+            stmt = getConnectionObj().prepareStatement(query);
+
+            cursor = stmt.executeQuery();
+
+            //            String headerDate = null;
+            while (cursor.next()) {
+                try {
+                    headerDate = getHeaderDateWithRequiredPattern(
+                            cursor.getString(4), currentDateFormat,
+                            dedlineHeaderFormat);
+                } catch (ParseException e) {
+                    Logger.printException(e);
+                }
+
+                CommonJobBean currentJobsBean = new CommonJobBean(
+                        encodeString(cursor.getBytes(1)),
+                        encodeString(cursor.getBytes(2)),
+                        cursor.getInt(3),
+                        cursor.getString(4),
+                        cursor.getString(5),
+                        encodeString(cursor.getBytes(6)),
+                        encodeString(cursor.getBytes(7)),
+                        encodeString(cursor.getBytes(8)),
+                        encodeString(cursor.getBytes(9)),
+                        cursor.getInt(10),
+                        encodeString(cursor.getBytes(11)),
+                        encodeString(cursor.getBytes(12)),
+                        encodeString(cursor.getBytes(13)),
+                        encodeString(cursor.getBytes(14)),
+                        encodeString(cursor.getBytes(15)),
+                        cursor.getInt(16),
+                        cursor.getInt(17),
+                        cursor.getString(19),
+                        cursor.getString(18),
+                        cursor.getString(20),
+                        cursor.getString(21),
+                        cursor.getInt(22),
+                        cursor.getString(23),
+                        cursor.getString(24),
+                        cursor.getString(25),
+                        encodeString(cursor.getBytes(26)),
+                        cursor.getInt(27),
+                        cursor.getInt(28),
+                        cursor.getInt(29),
+                        encodeString(cursor.getBytes(30)),
+                        cursor.getString(31),
+                        cursor.getString(32),
+                        cursor.getString(33),
+                        headerDate,
+                        cursor.getString(36));
+
+                currentJobsBean.setDt_deb_real(cursor.getString(34));
+                currentJobsBean.setDt_fin_real(cursor.getString(35));
+                numberOfJob++;
+                currentJobsBeans.add(currentJobsBean);
+                Log.e("ArrayCheck","size>>>>>>>>>>>>>>>>>>>> of 2nd call"+currentJobsBeans.size());
+
+            }
+
+            cursor.close();
+            stmt.close();
 
             query = "SELECT "
                     + "ID_INTERVENTION,"// t_intervention
@@ -37012,7 +37070,7 @@ public class Dao {
     }
 
     public synchronized CurrentJobArrayListBean getTodaysJobs(Date date, int userId,
-                                                         int sortingOption) {
+                                                              int sortingOption) {
 
         Logger.log(TAG, "Calling the fetch current job query===>" + date);
 
@@ -37065,7 +37123,6 @@ public class Dao {
             stmt = getConnectionObj().prepareStatement(query);
 
             cursor = stmt.executeQuery();
-
             String headerDate = null;
             while (cursor.next()) {
                 try {
@@ -37130,88 +37187,88 @@ public class Dao {
             Logger.printException(exc);
         }
 
-//   Commented This Query becuse there is a duplicate in Todays Jobs for Auxillary Technicians.
-//        try {
-//            query = getTodayJobColumn();
-//
-//            query += " FROM T_INTERVENTIONS " +
-//                    " INNER JOIN TREF_TYPE_INTERVENTION ON" +
-//                    " TREF_TYPE_INTERVENTION.ID_TYPE_INTERVENTION=" +
-//                    "T_INTERVENTIONS.ID_TYPE_INTERVENTION " +
-//                    "WHERE " +
-//                    "ID_USER!=" + userId
-//                    + " AND CD_STATUT_INTERV="
-//                    + KEYS.CurrentJobs.JOB__SUSPENDED
-//                    + " AND (DATEFORMAT(DT_DEB_REAL,'yyyy-mm-dd')='"
-//                    + currentDate + "'" +
-//                    ")" +
-//                    " ORDER BY DT_DEB_PREV";
-//
-//
-//            stmt = getConnectionObj().prepareStatement(query);
-//
-//            cursor = stmt.executeQuery();
-//            String headerDate = null;
-//            while (cursor.next()) {
-//                try {
-//                    headerDate = getHeaderDateWithRequiredPattern(
-//                            cursor.getString(4), currentDateFormat,
-//                            dedlineHeaderFormat);
-//
-//                } catch (ParseException e) {
-//                    Logger.printException(e);
-//                }
-//
-//
-//                CommonJobBean currentJobsBean = new CommonJobBean(
-//                        encodeString(cursor.getBytes(1)),
-//                        encodeString(cursor.getBytes(2)),
-//                        cursor.getInt(3),
-//                        cursor.getString(4),
-//                        cursor.getString(5),
-//                        encodeString(cursor.getBytes(6)),
-//                        encodeString(cursor.getBytes(7)),
-//                        encodeString(cursor.getBytes(8)),
-//                        encodeString(cursor.getBytes(9)),
-//                        cursor.getInt(10),
-//                        encodeString(cursor.getBytes(11)),
-//                        encodeString(cursor.getBytes(12)),
-//                        encodeString(cursor.getBytes(13)),
-//                        encodeString(cursor.getBytes(14)),
-//                        encodeString(cursor.getBytes(15)),
-//                        cursor.getInt(16),
-//                        cursor.getInt(17),
-//                        cursor.getString(19),
-//                        cursor.getString(18),
-//                        cursor.getString(20),
-//                        cursor.getString(21),
-//                        cursor.getInt(22),
-//                        cursor.getString(23),
-//                        cursor.getString(24),
-//                        cursor.getString(25),
-//                        encodeString(cursor.getBytes(26)),
-//                        cursor.getInt(27),
-//                        cursor.getInt(28),
-//                        cursor.getInt(29),
-//                        encodeString(cursor.getBytes(30)),
-//                        cursor.getString(31),
-//                        cursor.getString(32),
-//                        cursor.getString(33),
-//                        headerDate,
-//                        cursor.getString(36));
-//
-//                currentJobsBean.setDt_deb_real(cursor.getString(34));
-//                currentJobsBean.setDt_fin_real(cursor.getString(35));
-//                numberOfJob++;
-//
-//                currentJobsBeans.add(currentJobsBean);
-//                Log.e("ArrayCheck","size>>>>>>>>>>>>>>>>>>>> of 2nd call"+currentJobsBeans.size());
-//            }
-//            cursor.close();
-//            stmt.close();
-//        } catch (Exception exc) {
-//            Logger.printException(exc);
-//        }
+
+        try {
+            query = getTodayJobColumn();
+
+            query += " FROM T_INTERVENTIONS " +
+                    " INNER JOIN TREF_TYPE_INTERVENTION ON" +
+                    " TREF_TYPE_INTERVENTION.ID_TYPE_INTERVENTION=" +
+                    "T_INTERVENTIONS.ID_TYPE_INTERVENTION " +
+                    "WHERE " +
+                    "ID_USER!=" + userId
+                    + " AND CD_STATUT_INTERV="
+                    + KEYS.CurrentJobs.JOB__SUSPENDED
+                    + " AND (DATEFORMAT(DT_DEB_REAL,'yyyy-mm-dd')='"
+                    + currentDate + "'" +
+                    ")" +
+                    " ORDER BY DT_DEB_PREV";
+
+
+            stmt = getConnectionObj().prepareStatement(query);
+
+            cursor = stmt.executeQuery();
+            String headerDate = null;
+            while (cursor.next()) {
+                try {
+                    headerDate = getHeaderDateWithRequiredPattern(
+                            cursor.getString(4), currentDateFormat,
+                            dedlineHeaderFormat);
+
+                } catch (ParseException e) {
+                    Logger.printException(e);
+                }
+
+
+                CommonJobBean currentJobsBean = new CommonJobBean(
+                        encodeString(cursor.getBytes(1)),
+                        encodeString(cursor.getBytes(2)),
+                        cursor.getInt(3),
+                        cursor.getString(4),
+                        cursor.getString(5),
+                        encodeString(cursor.getBytes(6)),
+                        encodeString(cursor.getBytes(7)),
+                        encodeString(cursor.getBytes(8)),
+                        encodeString(cursor.getBytes(9)),
+                        cursor.getInt(10),
+                        encodeString(cursor.getBytes(11)),
+                        encodeString(cursor.getBytes(12)),
+                        encodeString(cursor.getBytes(13)),
+                        encodeString(cursor.getBytes(14)),
+                        encodeString(cursor.getBytes(15)),
+                        cursor.getInt(16),
+                        cursor.getInt(17),
+                        cursor.getString(19),
+                        cursor.getString(18),
+                        cursor.getString(20),
+                        cursor.getString(21),
+                        cursor.getInt(22),
+                        cursor.getString(23),
+                        cursor.getString(24),
+                        cursor.getString(25),
+                        encodeString(cursor.getBytes(26)),
+                        cursor.getInt(27),
+                        cursor.getInt(28),
+                        cursor.getInt(29),
+                        encodeString(cursor.getBytes(30)),
+                        cursor.getString(31),
+                        cursor.getString(32),
+                        cursor.getString(33),
+                        headerDate,
+                        cursor.getString(36));
+
+                currentJobsBean.setDt_deb_real(cursor.getString(34));
+                currentJobsBean.setDt_fin_real(cursor.getString(35));
+                numberOfJob++;
+
+                currentJobsBeans.add(currentJobsBean);
+                Log.e("ArrayCheck","size>>>>>>>>>>>>>>>>>>>> of 2nd call"+currentJobsBeans.size());
+            }
+            cursor.close();
+            stmt.close();
+        } catch (Exception exc) {
+            Logger.printException(exc);
+        }
 
         try {
             query = getTodayJobColumn();
@@ -37457,8 +37514,6 @@ public class Dao {
                 currentJobsBeans, numberOfJob);
 
         return currentJobDataBean;
-//        Log.e("ArrayCheck","size>>>>>>>>>>>>>>>>>>>> of 5th call"+currentJobsBeans.size());
-
     }
 
     public synchronized boolean showGallery() {
@@ -37978,7 +38033,7 @@ public class Dao {
      * @return the all intervention before
      */
     public synchronized CurrentJobDataBean getAllInterventionNearByNewWithOffset(String gpsX,
-                                                                       String gpsY,int offset) {
+                                                                                 String gpsY,int offset) {
         ArrayList<CommonListBean> currentJobsBeans = new ArrayList<CommonListBean>();
         String query;
         int numberOfJob = 0;
@@ -38387,10 +38442,7 @@ public class Dao {
                     currentJobsBean.setDatePref(cursor.getString(38));
                     currentJobsBean.setIdJobWindow(cursor.getInt(39));
                 }
-
-
                 currentJobsBeans.add(currentJobsBean);
-
             }
             cursor.close();
             stmt.close();
@@ -38403,7 +38455,6 @@ public class Dao {
                 currentJobsBeans, numberOfJob);
         return currentJobDataBean;
     }
-
 
     public synchronized ArrayList<CommonListBean> getJobPoolSearchWithOffset(int offset, String value) {
         ArrayList<CommonListBean> currentJobsBeans = new ArrayList<CommonListBean>();
@@ -38460,7 +38511,7 @@ public class Dao {
                     + "AND CD_STATUT_INTERV = "
                     + KEYS.CurrentJobs.JOB_POOL_SCHEDULE + " "
                     + "AND T_INTERVENTIONS.FL_POOL=1"
-            +"AND (" +
+                    +"AND (" +
                     "TREF_TYPE_INTERVENTION.NM_TYPE_INTERVENTION LIKE '%" + value + "%' " +
                     "OR NOM_CLIENT_INTERV LIKE '%" + value + "%' " +
                     "OR REF_CUSTOMER LIKE '%" + value + "%'" +
@@ -38547,6 +38598,227 @@ public class Dao {
         return currentJobsBeans;
     }
 
+
+    public synchronized int getJobPoolSearchWithCount(String value) {
+
+        String query;
+        int numberOfJob = 0;
+        PreparedStatement stmt = null;
+        ResultSet cursor = null;
+        try {
+
+            query = "SELECT COUNT(ID_INTERVENTION) "
+                    + "FROM T_INTERVENTIONS,TREF_TYPE_INTERVENTION "
+                    + "WHERE "
+                    + "T_INTERVENTIONS.ID_TYPE_INTERVENTION=TREF_TYPE_INTERVENTION.ID_TYPE_INTERVENTION "
+                    + "AND CD_STATUT_INTERV = "
+                    + KEYS.CurrentJobs.JOB_POOL_SCHEDULE + " "
+                    + "AND T_INTERVENTIONS.FL_POOL=1"
+                    +"AND (" +
+                    "TREF_TYPE_INTERVENTION.NM_TYPE_INTERVENTION LIKE '%" + value + "%' " +
+                    "OR NOM_CLIENT_INTERV LIKE '%" + value + "%' " +
+                    "OR REF_CUSTOMER LIKE '%" + value + "%'" +
+                    "OR NO_INT_CUST LIKE '%" + value + "%'" +
+                    " OR NOM_SITE_INTERV LIKE '%" + value + "%'"+
+                    " OR NOM_EQUIPEMENT_INTERV LIKE '%" + value + "%'"+
+                    ") ORDER BY NOM_CLIENT_INTERV";
+
+            stmt = getConnectionObj().prepareStatement(query);
+
+            cursor = stmt.executeQuery();
+
+            cursor.first();
+
+            numberOfJob = cursor.getInt(1);
+
+            cursor.close();
+            stmt.close();
+//            connDao.commit();
+
+        } catch (Exception exc) {
+            Logger.printException(exc);
+        }
+//        CurrentJobDataBean currentJobDataBean = new CurrentJobDataBean(
+//                currentJobsBeans, numberOfJob);
+        return numberOfJob;
+    }
+
+
+//    public synchronized ArrayList<SortiePiece> getImportParts(String idInter) {
+//        ArrayList<SortiePiece> st = new ArrayList<>();
+//        PreparedStatement stmt = null;
+//        ResultSet cursor = null;
+//        try {
+//
+//            String query = " SELECT "
+//                    + " TREF_PIECES.ID_PIECE,"
+//                    + " NM_PIECE,"
+//                    + " PRIX_PIECE,"
+//                    + " FL_SERIALIZABLE,"
+//                    + " QUANTITE_SORTIE, "
+//                    + " NM_CATEGORIE_PIECE, "
+//                    + " FL_FACTURABLE, "
+//                    + " SERIAL_SORTIE, "
+//                    + " FL_TRACK_STOCK, "
+//                    + "TREF_CATEGORIE_PIECE.NM_CATEGORIE_PIECE,"
+//                    + "TREF_PIECES.CD_PRODUIT, "
+//                    + "TREF_PIECES.ID_TAXRATE "
+//                    + " FROM "
+//                    + " T_SORTIE_PIECE ,TREF_PIECES ,TREF_CATEGORIE_PIECE "
+//                    + " WHERE TREF_PIECES.ID_PIECE = T_SORTIE_PIECE.ID_PIECE "
+//                    + " AND TREF_PIECES.ID_CATEGORIE_PIECE = TREF_CATEGORIE_PIECE.ID_CATEGORIE_PIECE "
+//                    + " AND (T_SORTIE_PIECE.QUANTITE_SORTIE ='0' OR T_SORTIE_PIECE.QUANTITE_SORTIE >'0')"
+//                    + " AND ID_INTERVENTION = '" + idInter + "'";
+//
+//
+//            // + "' AND T_SORTIE_PIECE.QUANTITE_SORTIE >= 1 ";
+//            //Connection connection = getConnectionObj();
+//            stmt = getConnectionObj().prepareStatement(query);
+//            cursor = stmt.executeQuery();
+//            while (cursor.next()) {
+//
+//                SortiePiece sp = new SortiePiece(cursor.getInt(1),
+//                        encodeString(cursor.getBytes(2)), cursor.getDouble(3),
+//                        cursor.getInt(4), cursor.getDouble(5),
+//                        encodeString(cursor.getBytes(6)), cursor.getInt(7),
+//                        "", 0, encodeString(cursor.getBytes(8)), cursor.getInt(9),
+//                        encodeString(cursor.getBytes(10)), encodeString(cursor.getBytes(11)),
+//                        cursor.getInt(12));
+//
+//
+////                SortiePiece sp = new SortiePiece(cursor.getInt(1),
+////                        encodeString(cursor.getBytes(2)), cursor.getDouble(3),
+////                        cursor.getInt(4), cursor.getDouble(5),
+////                        encodeString(cursor.getBytes(6)), cursor.getInt(7),
+////                        "", 0, encodeString(cursor.getBytes(8)), cursor.getInt(9));
+//
+//
+//                st.add(sp);
+//            }
+//        } catch (Exception e) {
+//            Logger.printException(e);
+//        } finally {
+//            if (cursor != null) {
+//                try {
+//                    cursor.close();
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//            if (stmt != null) {
+//                try {
+//                    stmt.close();
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//            try {
+//                connDao.commit();
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            }
+//        }
+//        return st;
+//    }
+
+//    public String isItemPreset(String idRemortFacture,int idPiece) {
+//        String sql = "SELECT ID_REMOTE_FACTURE FROM T_LIGNES_FACTURE "
+//        +"WHERE ID_REMOTE_FACTURE = '" + idRemortFacture + "'"
+//        +"AND ID_PIECE ='" + idPiece + "'";
+//        try {
+//            PreparedStatement stmt = connDao.prepareStatement(sql);
+//            ResultSet cursor = stmt.executeQuery();
+//            while (cursor.next()) {
+//                return encodeString(cursor.getBytes(1));
+//            }
+//            cursor.close();
+//            stmt.close();
+//            connDao.commit();
+//            return null;
+//        } catch (Exception e) {
+//            return null;
+//        }
+//    }
+
+    public synchronized ArrayList<Invoice_Quotation_Items_Beans> isItemPreset(String idRemortFacture,int idTaxRate,double total,String itemName,String description, String idInterv) {
+
+        ArrayList<Invoice_Quotation_Items_Beans> invoiceQuotationList = new ArrayList<Invoice_Quotation_Items_Beans>();
+        PreparedStatement stmt = null;
+        ResultSet cursor = null;
+        try {
+
+//            //new changes
+//            String sql = "SELECT * FROM T_LIGNES_FACTURE "
+//                    +"WHERE ID_REMOTE_FACTURE = '" + idRemortFacture + "'"
+//                    +"AND ID_PIECE ='" + idPiece + "'";
+
+//            String sql=   "SELECT * FROM T_LIGNES_FACTURE "
+//                    +"WHERE ID_REMOTE_FACTURE = '" + idRemortFacture + "'"
+//                                        +"AND (REF_LIGNE !='" + itemName + "'"
+//            +"AND DESCR_LIGNE !='" + description + "'"
+//                    +")";
+
+            String sql= "SELECT * FROM T_LIGNES_FACTURE WHERE ID_REMOTE_FACTURE = '" + idRemortFacture +"'"+
+                    "AND ID_INTERVENTION = '" + idInterv +"'"+
+//                    "AND ID_TAXRATE = '" + idTaxRate +"'"+
+//                    "AND TOTAL_HT = '" + total +"'" +
+                    "AND REF_LIGNE LIKE '" + itemName +"'" +
+                    "AND DESCR_LIGNE LIKE '" + description +"'" ;
+
+            stmt = getConnectionObj().prepareStatement(sql);
+
+            cursor = stmt.executeQuery();
+
+            Invoice_Quotation_Items_Beans invoiceQuotationBeans = null;
+
+            while (cursor.next()) {
+                invoiceQuotationBeans = new Invoice_Quotation_Items_Beans();
+                invoiceQuotationBeans.setItem(cursor.getString(1));
+                invoiceQuotationBeans.setDescription(cursor.getString(2));
+                invoiceQuotationBeans.setUnitPrice(cursor.getDouble(3));
+                invoiceQuotationBeans.setQuantity(cursor.getDouble(4));
+                invoiceQuotationBeans.setTax(cursor.getDouble(5));
+                invoiceQuotationBeans.setOrder(cursor.getInt(6));
+                invoiceQuotationBeans.setDiscount(cursor.getDouble(8));
+                invoiceQuotationBeans.setTotal(cursor.getDouble(9));
+                invoiceQuotationBeans.setTaxValue(cursor.getDouble(10));
+                invoiceQuotationBeans.setTotalWIthTax(cursor.getDouble(11));
+                invoiceQuotationBeans.setId(cursor.getString(12));
+                invoiceQuotationBeans.setDescriptionItem(cursor.getString(16));
+                invoiceQuotationBeans.setTaxName(getTaxNameById(cursor.getInt(14)));
+                invoiceQuotationBeans.setPercent(cursor.getBoolean(18));
+                invoiceQuotationBeans.setIdTaxRate("" + cursor.getInt(14));
+
+                invoiceQuotationList.add(invoiceQuotationBeans);
+            }
+        } catch (Exception exc) {
+            Logger.printException(exc);
+            exc.printStackTrace();
+        } finally {
+            if (cursor != null) {
+                try {
+                    cursor.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            try {
+                connDao.commit();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        return invoiceQuotationList;
+    }
+
     public synchronized String getClientFirstName(int clientId) {
 
         String clientFirstName = null;
@@ -38594,6 +38866,1112 @@ public class Dao {
 
     }
 
+
+    public synchronized CurrentJobDataBeanNew getCurrentJobsForSortingNewInClient(Date date, int userId,int idClient) {
+
+        Vector<CommonJobBean> currentJobsBeans = new Vector<>();
+        String query;
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        String currentDate = sdf.format(date);
+
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(
+                currentDateFormat, Locale.US);
+        String dateOfToday = simpleDateFormat.format(date);
+
+        int numberOfJob = 0;
+        PreparedStatement stmt = null;
+        ResultSet cursor = null;
+        try {
+
+            // query="SELECT * FROM T_INTERVENTIONS WHERE DATEFORMAT(DT_DEB_PREV,'yyyy-mm-dd')='"+currentDate+"'";
+
+            // System.out.println(query);
+            if (sdf.format(new Date()).equals(sdf.format(date))) {
+
+                query = "SELECT "
+                        + "ID_INTERVENTION,"// t_intervention
+                        + "DESCR_INTERVENTION,"// t_intervention
+                        + "PRIORITE_INTERVENTION,"// t_intervention
+                        + "DT_DEB_PREV,"// t_intervention
+                        + "DT_FIN_PREV,"
+                        + "ADR_INTERV_RUE,"
+                        + "ADR_INTERV_CP,"
+                        + "ADR_INTERV_VILLE,"
+                        + "ADR_INTERV_PAYS,"
+                        + "CD_STATUT_INTERV,"
+                        + "NOM_CLIENT_INTERV,"
+                        + "NOM_CONTACT,"
+                        + "TEL_CONTACT,"
+                        + "NOM_SITE_INTERV, "
+                        + "TREF_TYPE_INTERVENTION.NM_TYPE_INTERVENTION,"
+                        + "T_INTERVENTIONS.ID_MODELE_RAPPORT,"
+//                        + "TREF_MODELE_RAPPORT.NM_MODELE_RAPPORT,"
+                        + "T_INTERVENTIONS.ID_USER,"
+                        + "GPS_POSX_INTERV,"
+                        + "GPS_POSY_INTERV,"
+                        + "ADR_INTERV_GLOBALE,"
+                        + "ADR_INTERV_COMPLEMENT,"
+                        + "NO_INT_CUST, "
+                        + "NM_CLIENT_SIGN ,"
+                        + "NM_TECH_SIGN ,"
+                        + "NM_FACTURE_SIGN, "
+                        + "NOM_EQUIPEMENT_INTERV, "
+                        + "ID_CLIENT, "
+                        + "ID_SITE, "
+                        + "ID_EQUIPEMENT,"
+                        + "MOBILE_CONTACT,"
+                        + "DT_MEETING, "
+                        + "REF_CUSTOMER, "
+                        + "ID_INTERVENTION_MERE, "
+                        + "DT_DEB_REAL ,"
+                        + "DT_FIN_REAL, "
+                        + "DT_CREATE "
+//                        + "FROM T_INTERVENTIONS,TREF_TYPE_INTERVENTION,TREF_MODELE_RAPPORT "
+                        + "FROM T_INTERVENTIONS,TREF_TYPE_INTERVENTION "
+                        + "WHERE "
+                        + "T_INTERVENTIONS.ID_TYPE_INTERVENTION=TREF_TYPE_INTERVENTION.ID_TYPE_INTERVENTION "
+//                        + "AND "
+//                        + "T_INTERVENTIONS.ID_MODELE_RAPPORT=TREF_MODELE_RAPPORT.ID_MODELE_RAPPORT AND(" +
+                        + "AND(" +
+                        "("
+                        + " ((DATEFORMAT(DT_DEB_PREV,'yyyy-mm-dd') <='"
+                        + currentDate + "') AND (DATEFORMAT(DT_FIN_PREV,'yyyy-mm-dd') >='" +
+                        currentDate + "')) AND ((CD_STATUT_INTERV="
+                        + KEYS.CurrentJobs.JOB_NOT_STARTED1
+                        + ") OR (CD_STATUT_INTERV="
+                        + KEYS.CurrentJobs.JOB_NOT_STARTED2 + "))"
+                        + ")" +
+                        "OR " +
+                        "(" +
+                        "ID_INTERVENTION IN (SELECT ID_INTERVENTION FROM "
+                        + "T_TEMPS_INTERV WHERE (date(DT_DEBUT) <= CURRENT DATE) AND date('"
+                        + dateOfToday
+                        + "')=CURRENT DATE AND DT_FIN IS NULL) AND T_INTERVENTIONS.ID_USER="
+                        + userId +
+                        ")" +
+                        "OR " +
+                        "(" +
+                        "CD_STATUT_INTERV="
+                        + KEYS.CurrentJobs.JOB__SUSPENDED
+                        + " AND ID_INTERVENTION IN (SELECT ID_INTERVENTION FROM "
+                        + "T_TEMPS_INTERV WHERE (DATEFORMAT(DT_FIN,'yyyy-mm-dd') ='"
+                        + currentDate + "'))" +
+                        ")" +
+                        "OR " +
+                        "(" +
+                        "T_INTERVENTIONS.ID_USER!=" + userId
+                        + " AND CD_STATUT_INTERV="
+                        + KEYS.CurrentJobs.JOB__STARTED +
+                        ")" +
+                        "OR " +
+                        "(" +
+                        "T_INTERVENTIONS.ID_USER!=" + userId
+                        + " AND CD_STATUT_INTERV="
+                        + KEYS.CurrentJobs.JOB__SUSPENDED
+                        + " AND DATEFORMAT(DT_DEB_REAL,'yyyy-mm-dd')='"
+                        + currentDate + "'" +
+                        ")" +
+                        ")"
+                        + "AND (T_INTERVENTIONS.ID_CLIENT=" + idClient
+                        +")"
+                        + " ORDER BY DT_DEB_PREV";
+            } else {
+                query = "SELECT "
+                        + "ID_INTERVENTION,"// t_intervention
+                        + "DESCR_INTERVENTION,"// t_intervention
+                        + "PRIORITE_INTERVENTION,"// t_intervention
+                        + "DT_DEB_PREV,"// t_intervention
+                        + "DT_FIN_PREV,"
+                        + "ADR_INTERV_RUE,"
+                        + "ADR_INTERV_CP,"
+                        + "ADR_INTERV_VILLE,"
+                        + "ADR_INTERV_PAYS,"
+                        + "CD_STATUT_INTERV,"
+                        + "NOM_CLIENT_INTERV,"
+                        + "NOM_CONTACT,"
+                        + "TEL_CONTACT,"
+                        + "NOM_SITE_INTERV, "
+                        + "TREF_TYPE_INTERVENTION.NM_TYPE_INTERVENTION,"
+                        + "T_INTERVENTIONS.ID_MODELE_RAPPORT,"
+//                        + "TREF_MODELE_RAPPORT.NM_MODELE_RAPPORT,"
+                        + "T_INTERVENTIONS.ID_USER,"
+                        + "GPS_POSX_INTERV,"
+                        + "GPS_POSY_INTERV,"
+                        + "ADR_INTERV_GLOBALE,"
+                        + "ADR_INTERV_COMPLEMENT,"
+                        + "NO_INT_CUST, "
+                        + "NM_CLIENT_SIGN ,"
+                        + "NM_TECH_SIGN ,"
+                        + "NM_FACTURE_SIGN, "
+                        + "NOM_EQUIPEMENT_INTERV, "
+                        + "ID_CLIENT, "
+                        + "ID_SITE, "
+                        + "ID_EQUIPEMENT,"
+                        + "MOBILE_CONTACT,"
+                        + "DT_MEETING, "
+                        + "REF_CUSTOMER, "
+                        + "ID_INTERVENTION_MERE, "
+                        + "DT_DEB_REAL ,"
+                        + "DT_FIN_REAL, "
+                        + "DT_CREATE "
+//                        + "FROM T_INTERVENTIONS,TREF_TYPE_INTERVENTION,TREF_MODELE_RAPPORT "
+                        + "FROM T_INTERVENTIONS,TREF_TYPE_INTERVENTION "
+                        + "WHERE "
+                        + "T_INTERVENTIONS.ID_TYPE_INTERVENTION=TREF_TYPE_INTERVENTION.ID_TYPE_INTERVENTION "
+//                        + "AND "
+//                        + "T_INTERVENTIONS.ID_MODELE_RAPPORT=TREF_MODELE_RAPPORT.ID_MODELE_RAPPORT AND(" +
+                        + "AND(" +
+                        "("
+                        + " ((DATEFORMAT(DT_DEB_PREV,'yyyy-mm-dd') <='"
+                        + currentDate + "') AND (DATEFORMAT(DT_FIN_PREV,'yyyy-mm-dd') >='" +
+                        currentDate + "')) AND ((CD_STATUT_INTERV="
+                        + KEYS.CurrentJobs.JOB_NOT_STARTED1
+                        + ") OR (CD_STATUT_INTERV="
+                        + KEYS.CurrentJobs.JOB_NOT_STARTED2 + "))"
+                        + ")" +
+                        "OR " +
+                        "(" +
+                        "ID_INTERVENTION IN (SELECT ID_INTERVENTION FROM "
+                        + "T_TEMPS_INTERV WHERE (date(DT_DEBUT) <= CURRENT DATE) AND date('"
+                        + dateOfToday
+                        + "')=CURRENT DATE AND DT_FIN IS NULL) AND T_INTERVENTIONS.ID_USER="
+                        + userId +
+                        ")" +
+                        "OR " +
+                        "(" +
+                        "CD_STATUT_INTERV="
+                        + KEYS.CurrentJobs.JOB__SUSPENDED
+                        + " AND ID_INTERVENTION IN (SELECT ID_INTERVENTION FROM "
+                        + "T_TEMPS_INTERV WHERE (DATEFORMAT(DT_FIN,'yyyy-mm-dd') ='"
+                        + currentDate + "'))" +
+                        ")" +
+                        "OR " +
+                        "(" +
+                        "T_INTERVENTIONS.ID_USER!=" + userId
+                        + " AND CD_STATUT_INTERV="
+                        + KEYS.CurrentJobs.JOB__SUSPENDED
+                        + " AND DATEFORMAT(DT_DEB_REAL,'yyyy-mm-dd')='"
+                        + currentDate + "'" +
+                        ")" +
+                        ")"
+                        + "AND (T_INTERVENTIONS.ID_CLIENT=" + idClient
+                        +")"
+                        + " ORDER BY DT_DEB_PREV";
+            }
+
+
+            //Connection connection = getConnectionObj();
+            stmt = getConnectionObj().prepareStatement(query);
+            cursor = stmt.executeQuery();
+            String headerDate = null;
+            while (cursor.next()) {
+                try {
+                    headerDate = getHeaderDateWithRequiredPattern(
+                            cursor.getString(4), currentDateFormat,
+                            dedlineHeaderFormat);
+
+//                    Log.e("0th *******************", "********");
+
+                } catch (ParseException e) {
+                    Logger.printException(e);
+                }
+                CommonJobBean model = new CommonJobBean();
+                model.setId(encodeString(cursor.getBytes(1)));
+                model.setDesc(encodeString(cursor.getBytes(2)));
+                model.setPriorite(cursor.getInt(3));
+                model.setDt_deb_prev(cursor.getString(4));
+                model.setDt_fin_prev(cursor.getString(5));
+                model.setAdr_interv_rue(encodeString(cursor.getBytes(6)));
+                model.setAdr_interv_cp(encodeString(cursor.getBytes(7)));
+                model.setAdr_interv_ville(encodeString(cursor.getBytes(8)));
+                model.setAdr_interv_pays(encodeString(cursor.getBytes(9)));
+                model.setCd_status_interv(cursor.getInt(10));
+                model.setNom_client_interv(encodeString(cursor.getBytes(11)));
+                model.setNom_contact(encodeString(cursor.getBytes(12)));
+                model.setTel_contact(encodeString(cursor.getBytes(13)));
+                model.setNom_site_interv(encodeString(cursor.getBytes(14)));
+                model.setType_Interv(encodeString(cursor.getBytes(15)));
+                model.setId_model_rapport(cursor.getInt(16));
+                model.setIdUser(cursor.getInt(17));
+                model.setLat(cursor.getString(19));
+                model.setLon(cursor.getString(18));
+                model.setAdr_interv_globale(cursor.getString(20));
+                model.setAdr_interv_complement(cursor.getString(21));
+                model.setNo_interv(cursor.getInt(22));
+                model.setNom_client_sign(cursor.getString(23));
+                model.setNom_tech_sign(cursor.getString(24));
+                model.setNom_facture_sign(cursor.getString(25));
+                model.setNom_equipement(encodeString(cursor.getBytes(26)));
+                model.setIdClient(cursor.getInt(27));
+                model.setIdSite(cursor.getInt(28));
+                model.setIdEquipement(cursor.getInt(29));
+                model.setMobileContact(encodeString(cursor.getBytes(30)));
+                model.setDt_meeting(cursor.getString(31));
+                model.setRef_customer(cursor.getString(32));
+                model.setId_interv_mere(cursor.getString(33));
+                model.setHeaderDate(headerDate);
+                model.setDtCreated(cursor.getString(36));
+
+
+                model.setDt_deb_real(cursor.getString(34));
+                model.setDt_fin_real(cursor.getString(35));
+
+                numberOfJob++;
+                currentJobsBeans.add(model);
+            }
+//            cursor.close();
+//            stmt.close();
+            //connection.commit();
+//            connDao.commit();
+            //connection.release();
+        } catch (Exception exc) {
+            Logger.printException(exc);
+        } finally {
+            if (cursor != null) {
+                try {
+                    cursor.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            try {
+                connDao.commit();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        CurrentJobDataBeanNew currentJobDataBean = new CurrentJobDataBeanNew(
+                currentJobsBeans, numberOfJob);
+
+        return currentJobDataBean;
+    }
+    public synchronized Vector<CommonJobBean> getAllInterventionNextInClient(int idClient) {
+        Vector<CommonJobBean> tmp = new Vector<CommonJobBean>();
+        String query;
+        PreparedStatement stmt = null;
+        ResultSet cursor = null;
+        try {
+            query = "SELECT "
+                    + "ID_INTERVENTION,"
+                    + "DESCR_INTERVENTION,"
+                    + "PRIORITE_INTERVENTION,"
+                    + "DT_DEB_PREV,"
+                    + "DT_FIN_PREV,"
+                    + "ADR_INTERV_RUE,"
+                    + "ADR_INTERV_CP,"
+                    + "ADR_INTERV_VILLE,"
+                    + "ADR_INTERV_PAYS,"
+                    + "CD_STATUT_INTERV,"
+                    + "NOM_CLIENT_INTERV,"
+                    + "NOM_CONTACT,"
+                    + "TEL_CONTACT,"
+                    + "NOM_SITE_INTERV, "
+                    + "TREF_TYPE_INTERVENTION.NM_TYPE_INTERVENTION,"
+                    + "T_INTERVENTIONS.ID_MODELE_RAPPORT,"
+//                    + "TREF_MODELE_RAPPORT.NM_MODELE_RAPPORT,"
+                    + "T_INTERVENTIONS.ID_USER,"
+                    + "GPS_POSX_INTERV,"
+                    + "GPS_POSY_INTERV,"
+                    + "ADR_INTERV_GLOBALE,"
+                    + "ADR_INTERV_COMPLEMENT,"
+                    + "NO_INT_CUST, "
+                    + "NM_CLIENT_SIGN ,"
+                    + "NM_TECH_SIGN ,"
+                    + "NM_FACTURE_SIGN, "
+                    + "NOM_EQUIPEMENT_INTERV, "
+                    + "ID_CLIENT, "
+                    + "ID_SITE, "
+                    + "ID_EQUIPEMENT,"
+                    + "MOBILE_CONTACT, "
+                    + "DT_MEETING, "
+                    + "REF_CUSTOMER, "
+                    + "ID_INTERVENTION_MERE, "
+                    + "DT_DEB_REAL ,"
+                    + "DT_FIN_REAL, "
+                    + "DT_CREATE "
+//                    + "FROM T_INTERVENTIONS,TREF_TYPE_INTERVENTION,TREF_MODELE_RAPPORT "
+                    + "FROM T_INTERVENTIONS,TREF_TYPE_INTERVENTION "
+                    + "WHERE "
+                    + "T_INTERVENTIONS.ID_TYPE_INTERVENTION=TREF_TYPE_INTERVENTION.ID_TYPE_INTERVENTION "
+                    + "AND (T_INTERVENTIONS.ID_CLIENT=" + idClient
+                    +")"
+//                    + "AND "
+//                    + "T_INTERVENTIONS.ID_MODELE_RAPPORT=TREF_MODELE_RAPPORT.ID_MODELE_RAPPORT "
+                    + "AND date(dt_deb_prev) > CURRENT DATE AND CD_STATUT_INTERV <3 ORDER BY DT_DEB_PREV";
+            //Connection connection = getConnectionObj();
+            stmt = getConnectionObj().prepareStatement(query);
+
+            String headerDate = null;
+            cursor = stmt.executeQuery();
+            while (cursor.next()) {
+                try {
+                    headerDate = getHeaderDateWithRequiredPattern(
+                            cursor.getString(4), currentDateFormat,
+                            dedlineHeaderFormat);
+
+                } catch (ParseException e) {
+                    Logger.printException(e);
+                }
+
+                CommonJobBean currentJobsBean = new CommonJobBean(
+                        encodeString(cursor.getBytes(1)),
+                        encodeString(cursor.getBytes(2)),
+                        cursor.getInt(3),
+                        cursor.getString(4),
+                        cursor.getString(5),
+                        encodeString(cursor.getBytes(6)),
+                        encodeString(cursor.getBytes(7)),
+                        encodeString(cursor.getBytes(8)),
+                        encodeString(cursor.getBytes(9)),
+                        cursor.getInt(10),
+                        encodeString(cursor.getBytes(11)),
+                        encodeString(cursor.getBytes(12)),
+                        encodeString(cursor.getBytes(13)),
+                        encodeString(cursor.getBytes(14)),
+                        encodeString(cursor.getBytes(15)),
+                        cursor.getInt(16),
+                        cursor.getInt(17),
+                        cursor.getString(19),
+                        cursor.getString(18),
+                        cursor.getString(20),
+                        cursor.getString(21),
+                        cursor.getInt(22),
+                        cursor.getString(23),
+                        cursor.getString(24),
+                        cursor.getString(25),
+                        encodeString(cursor.getBytes(26)),
+                        cursor.getInt(27),
+                        cursor.getInt(28),
+                        cursor.getInt(29),
+                        encodeString(cursor.getBytes(30)),
+                        cursor.getString(31),
+                        cursor.getString(32),
+                        cursor.getString(33),
+                        headerDate,
+                        cursor.getString(36));
+
+                currentJobsBean.setDt_deb_real(cursor.getString(34));
+                currentJobsBean.setDt_fin_real(cursor.getString(35));
+
+                tmp.add(currentJobsBean);
+            }
+//            cursor.close();
+//            stmt.close();
+            //connection.commit();
+//            connDao.commit();
+            //connection.release();
+        } catch (Exception exc) {
+            Logger.printException(exc);
+        } finally {
+            if (cursor != null) {
+                try {
+                    cursor.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            try {
+                connDao.commit();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        return tmp;
+    }
+
+    public synchronized Vector<CommonJobBean> getLateJobsInClient(int userId,int idClient) {
+        Vector<CommonJobBean> tmp = new Vector<CommonJobBean>();
+        String query;
+        PreparedStatement stmt = null;
+        ResultSet cursor = null;
+        try {
+
+            query = "SELECT "
+                    + "ID_INTERVENTION,"
+                    + "DESCR_INTERVENTION,"
+                    + "PRIORITE_INTERVENTION,"
+                    + "DT_DEB_PREV,"
+                    + "DT_FIN_PREV,"
+                    + "ADR_INTERV_RUE,"
+                    + "ADR_INTERV_CP,"
+                    + "ADR_INTERV_VILLE,"
+                    + "ADR_INTERV_PAYS,"
+                    + "CD_STATUT_INTERV,"
+                    + "NOM_CLIENT_INTERV,"
+                    + "NOM_CONTACT,"
+                    + "TEL_CONTACT,"
+                    + "NOM_SITE_INTERV, "
+                    + "TREF_TYPE_INTERVENTION.NM_TYPE_INTERVENTION,"
+                    + "T_INTERVENTIONS.ID_MODELE_RAPPORT,"
+//                    + "TREF_MODELE_RAPPORT.NM_MODELE_RAPPORT,"
+                    + "T_INTERVENTIONS.ID_USER,"
+                    + "GPS_POSX_INTERV,"
+                    + "GPS_POSY_INTERV,"
+                    + "ADR_INTERV_GLOBALE,"
+                    + "ADR_INTERV_COMPLEMENT,"
+                    + "NO_INT_CUST, "
+                    + "NM_CLIENT_SIGN ,"
+                    + "NM_TECH_SIGN ,"
+                    + "NM_FACTURE_SIGN, "
+                    + "NOM_EQUIPEMENT_INTERV, "
+                    + "ID_CLIENT, "
+                    + "ID_SITE, "
+                    + "ID_EQUIPEMENT,"
+                    + "MOBILE_CONTACT, "
+                    + "DT_MEETING, "
+                    + "REF_CUSTOMER, "
+                    + "ID_INTERVENTION_MERE, "
+                    + "DT_DEB_REAL ,"
+                    + "DT_FIN_REAL, "
+                    + "DT_CREATE "
+//                    + "FROM T_INTERVENTIONS,TREF_TYPE_INTERVENTION,TREF_MODELE_RAPPORT "
+                    + "FROM T_INTERVENTIONS,TREF_TYPE_INTERVENTION "
+                    + "WHERE "
+                    + "T_INTERVENTIONS.ID_TYPE_INTERVENTION=TREF_TYPE_INTERVENTION.ID_TYPE_INTERVENTION "
+//                    + "AND "
+//                    + "T_INTERVENTIONS.ID_MODELE_RAPPORT=TREF_MODELE_RAPPORT.ID_MODELE_RAPPORT "
+                    + "AND (" +
+                    "( (date(DT_FIN_PREV )< CURRENT DATE) AND CD_STATUT_INTERV<="
+                    + KEYS.CurrentJobs.JOB_NOT_STARTED2
+                    + ") OR ("
+                    + "ID_INTERVENTION IN (SELECT ID_INTERVENTION "
+                    + "FROM T_TEMPS_INTERV GROUP BY ID_INTERVENTION "
+                    + "HAVING date(MAX(DT_FIN)) < CURRENT DATE) AND CD_STATUT_INTERV=4" +
+                    ") OR (" +
+                    "T_INTERVENTIONS.ID_USER!=" + userId
+                    + " AND CD_STATUT_INTERV="
+                    + KEYS.CurrentJobs.JOB__SUSPENDED
+                    + " AND date(DT_DEB_REAL) < CURRENT DATE" +
+                    "))"
+                    + "AND (T_INTERVENTIONS.ID_CLIENT=" + idClient
+                    +")"
+                    + " ORDER BY DT_DEB_PREV";
+            //Connection connection = getConnectionObj();
+            stmt = getConnectionObj().prepareStatement(query);
+            String headerDate = "";
+            cursor = stmt.executeQuery();
+            while (cursor.next()) {
+
+                try {
+                    headerDate = getHeaderDateWithRequiredPattern(
+                            cursor.getString(4), currentDateFormat,
+                            dedlineHeaderFormat);
+                } catch (ParseException e) {
+                    Logger.printException(e);
+                }
+
+                CommonJobBean deadlineJobBean = new CommonJobBean(
+                        encodeString(cursor.getBytes(1)),
+                        encodeString(cursor.getBytes(2)),
+                        cursor.getInt(3),
+                        cursor.getString(4),
+                        cursor.getString(5),
+                        encodeString(cursor.getBytes(6)),
+                        encodeString(cursor.getBytes(7)),
+                        encodeString(cursor.getBytes(8)),
+                        encodeString(cursor.getBytes(9)),
+                        cursor.getInt(10),
+                        encodeString(cursor.getBytes(11)),
+                        encodeString(cursor.getBytes(12)),
+                        encodeString(cursor.getBytes(13)),
+                        encodeString(cursor.getBytes(14)),
+                        encodeString(cursor.getBytes(15)),
+                        cursor.getInt(16),
+                        cursor.getInt(17),
+                        cursor.getString(19),
+                        cursor.getString(18),
+                        cursor.getString(20),
+                        cursor.getString(21),
+                        cursor.getInt(22),
+                        cursor.getString(23),
+                        cursor.getString(24),
+                        cursor.getString(25),
+                        encodeString(cursor.getBytes(26)),
+                        cursor.getInt(27),
+                        cursor.getInt(28),
+                        cursor.getInt(29),
+                        encodeString(cursor.getBytes(30)),
+                        cursor.getString(31),
+                        cursor.getString(32),
+                        cursor.getString(33),
+                        headerDate,
+                        cursor.getString(36));
+
+                deadlineJobBean.setDt_deb_real(cursor.getString(34));
+                deadlineJobBean.setDt_fin_real(cursor.getString(35));
+
+                tmp.add(deadlineJobBean);
+
+            }
+//            cursor.close();
+//            stmt.close();
+            //connection.commit();
+//            connDao.commit();
+            //connection.release();
+        } catch (Exception exc) {
+            Logger.printException(exc);
+        } finally {
+            if (cursor != null) {
+                try {
+                    cursor.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            try {
+                connDao.commit();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+
+        // Collections.sort(tmp, new Comparator<CommonJobBean>() {
+        //
+        // @Override
+        // public int compare(CommonJobBean lhs, CommonJobBean rhs) {
+        // return lhs.getHeaderDate().compareTo(rhs.getHeaderDate());
+        // }
+        //
+        // });
+
+        return tmp;
+    }
+    public synchronized Vector<CommonJobBean> getAllInterventionCompletedNewInClient(String lastDate,int idClient) {
+        Vector<CommonJobBean> tmp = new Vector<CommonJobBean>();
+        String query;
+        PreparedStatement stmt = null;
+        ResultSet cursor = null;
+        try {
+            query = "SELECT "
+                    + "ID_INTERVENTION,"
+                    + "DESCR_INTERVENTION,"
+                    + "PRIORITE_INTERVENTION,"
+                    + "DT_DEB_PREV,"
+                    + "DT_FIN_PREV,"
+                    + "ADR_INTERV_RUE,"
+                    + "ADR_INTERV_CP,"
+                    + "ADR_INTERV_VILLE,"
+                    + "ADR_INTERV_PAYS,"
+                    + "CD_STATUT_INTERV,"
+                    + "NOM_CLIENT_INTERV,"
+                    + "NOM_CONTACT,"
+                    + "TEL_CONTACT,"
+                    + "NOM_SITE_INTERV, "
+                    + "TREF_TYPE_INTERVENTION.NM_TYPE_INTERVENTION,"
+                    + "T_INTERVENTIONS.ID_MODELE_RAPPORT,"
+//                    + "TREF_MODELE_RAPPORT.NM_MODELE_RAPPORT,"
+                    + "T_INTERVENTIONS.ID_USER,"
+                    + "GPS_POSX_INTERV,"
+                    + "GPS_POSY_INTERV,"
+                    + "ADR_INTERV_GLOBALE,"
+                    + "ADR_INTERV_COMPLEMENT,"
+                    + "NO_INT_CUST, "
+                    + "NM_CLIENT_SIGN ,"
+                    + "NM_TECH_SIGN ,"
+                    + "NM_FACTURE_SIGN, "
+                    + "NOM_EQUIPEMENT_INTERV, "
+                    + "ID_CLIENT, "
+                    + "ID_SITE, "
+                    + "ID_EQUIPEMENT,"
+                    + "MOBILE_CONTACT, "
+                    + "DT_MEETING, "
+                    + "REF_CUSTOMER, "
+                    + "ID_INTERVENTION_MERE, "
+                    + "DT_DEB_REAL ,"
+                    + "DT_FIN_REAL "
+//                    + "FROM T_INTERVENTIONS,TREF_TYPE_INTERVENTION,TREF_MODELE_RAPPORT "
+                    + "FROM T_INTERVENTIONS,TREF_TYPE_INTERVENTION "
+                    + "WHERE "
+                    + "T_INTERVENTIONS.ID_TYPE_INTERVENTION=TREF_TYPE_INTERVENTION.ID_TYPE_INTERVENTION "
+                    + "AND (T_INTERVENTIONS.ID_CLIENT=" + idClient
+                    +")"
+//                    + "AND "
+//                    + "T_INTERVENTIONS.ID_MODELE_RAPPORT=TREF_MODELE_RAPPORT.ID_MODELE_RAPPORT "
+                    + "AND (CD_STATUT_INTERV ='5' OR CD_STATUT_INTERV ='6') AND "
+                    + "dateformat(DT_FIN_REAL,'yyyy-mm-dd') >='" + lastDate + "'";
+            //Connection connection = getConnectionObj();
+            stmt = getConnectionObj().prepareStatement(query);
+
+            cursor = stmt.executeQuery();
+            String headerDate = null;
+
+            while (cursor.next()) {
+
+                try {
+                    headerDate = getHeaderDateWithRequiredPattern(
+                            cursor.getString(4), currentDateFormat,
+                            dedlineHeaderFormat);
+
+//                    Log.e("0th *******************", "********");
+
+                } catch (ParseException e) {
+                    Logger.printException(e);
+                }
+
+                CommonJobBean model = new CommonJobBean();
+                model.setId(encodeString(cursor.getBytes(1)));
+                model.setDesc(encodeString(cursor.getBytes(2)));
+                model.setPriorite(cursor.getInt(3));
+                model.setDt_deb_prev(cursor.getString(4));
+                model.setDt_fin_prev(cursor.getString(5));
+                model.setAdr_interv_rue(encodeString(cursor.getBytes(6)));
+                model.setAdr_interv_cp(encodeString(cursor.getBytes(7)));
+                model.setAdr_interv_ville(encodeString(cursor.getBytes(8)));
+                model.setAdr_interv_pays(encodeString(cursor.getBytes(9)));
+                model.setCd_status_interv(cursor.getInt(10));
+                model.setNom_client_interv(encodeString(cursor.getBytes(11)));
+                model.setNom_contact(encodeString(cursor.getBytes(12)));
+                model.setTel_contact(encodeString(cursor.getBytes(13)));
+                model.setNom_site_interv(encodeString(cursor.getBytes(14)));
+                model.setType_Interv(encodeString(cursor.getBytes(15)));
+                model.setId_model_rapport(cursor.getInt(16));
+                model.setIdUser(cursor.getInt(17));
+                model.setLat(cursor.getString(19));
+                model.setLon(cursor.getString(18));
+                model.setAdr_interv_globale(cursor.getString(20));
+                model.setAdr_interv_complement(cursor.getString(21));
+                model.setNo_interv(cursor.getInt(22));
+                model.setNom_client_sign(cursor.getString(23));
+                model.setNom_tech_sign(cursor.getString(24));
+                model.setNom_facture_sign(cursor.getString(25));
+                model.setNom_equipement(encodeString(cursor.getBytes(26)));
+                model.setIdClient(cursor.getInt(27));
+                model.setIdSite(cursor.getInt(28));
+                model.setIdEquipement(cursor.getInt(29));
+                model.setMobileContact(encodeString(cursor.getBytes(30)));
+                model.setDt_meeting(cursor.getString(31));
+                model.setRef_customer(cursor.getString(32));
+                model.setId_interv_mere(cursor.getString(33));
+                model.setHeaderDate(headerDate);
+                model.setDtCreated("");
+                model.setDt_deb_real(cursor.getString(34));
+                model.setDt_fin_real(cursor.getString(35));
+                tmp.add(model);
+
+            }
+//            cursor.close();
+//            stmt.close();
+            //connection.commit();
+//            connDao.commit();
+            //connection.release();
+        } catch (Exception exc) {
+            Logger.printException(exc);
+        } finally {
+            if (cursor != null) {
+                try {
+                    cursor.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            try {
+                connDao.commit();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        return tmp;
+    }
+
+    public synchronized int get_FL_HORS_PROGRAMME() {
+        PreparedStatement stmt = null;
+        ResultSet cursor = null;
+        int FL_HORS_PROGRAMME = 0;
+
+        try {
+            String query="SELECT FL_HORS_PROGRAMME FROM T_CUSTOMERS ";
+
+            stmt = getConnectionObj().prepareStatement(query);
+
+            cursor = stmt.executeQuery();
+            cursor.next();
+
+            FL_HORS_PROGRAMME = cursor.getInt(1);
+            cursor.close();
+            stmt.close();
+//            connDao.commit();
+//            connNew.release();
+        } catch (Exception exc) {
+            Logger.printException(exc);
+
+        }
+        return FL_HORS_PROGRAMME;
+    }
+
+    public synchronized int get_FL_SUBC_JOB_CREATE() {
+        PreparedStatement stmt = null;
+        ResultSet cursor = null;
+        int FL_SUBC_JOB_CREATE = 0;
+
+        try {
+            String query="SELECT FL_SUBC_JOB_CREATE FROM TREF_GESTION_ACCES ";
+
+            stmt = getConnectionObj().prepareStatement(query);
+
+            cursor = stmt.executeQuery();
+            cursor.next();
+
+            FL_SUBC_JOB_CREATE = cursor.getInt(1);
+            cursor.close();
+            stmt.close();
+//            connDao.commit();
+//            connNew.release();
+        } catch (Exception exc) {
+            Logger.printException(exc);
+
+        }
+        return FL_SUBC_JOB_CREATE;
+    }
+
+
+    public synchronized int get_FL_SUBC_CLIENT_LIST() {
+        PreparedStatement stmt = null;
+        ResultSet cursor = null;
+        int FL_SUBC_CLIENT_LIST = 0;
+
+        try {
+            String query="SELECT FL_SUBC_CLIENT_LIST FROM TREF_GESTION_ACCES ";
+
+            stmt = getConnectionObj().prepareStatement(query);
+
+            cursor = stmt.executeQuery();
+            cursor.next();
+
+            FL_SUBC_CLIENT_LIST = cursor.getInt(1);
+            cursor.close();
+            stmt.close();
+//            connDao.commit();
+//            connNew.release();
+        } catch (Exception exc) {
+            Logger.printException(exc);
+
+        }
+        return FL_SUBC_CLIENT_LIST;
+    }
+
+    public synchronized int get_FL_LIST_CUSTOMERS() {
+        PreparedStatement stmt = null;
+        ResultSet cursor = null;
+        int FL_LIST_CUSTOMERS = 0;
+
+        try {
+            String query="SELECT FL_LIST_CUSTOMERS FROM TREF_GESTION_ACCES ";
+
+            stmt = getConnectionObj().prepareStatement(query);
+
+            cursor = stmt.executeQuery();
+            cursor.next();
+
+            FL_LIST_CUSTOMERS = cursor.getInt(1);
+            cursor.close();
+            stmt.close();
+//            connDao.commit();
+//            connNew.release();
+        } catch (Exception exc) {
+            Logger.printException(exc);
+
+        }
+        return FL_LIST_CUSTOMERS;
+    }
+
+    public synchronized int get_FL_WHATSAPP() {
+        PreparedStatement stmt = null;
+        ResultSet cursor = null;
+        int FL_WHATSAPP = 0;
+
+        try {
+            String query="SELECT FL_WHATSAPP FROM TREF_GESTION_ACCES ";
+
+            stmt = getConnectionObj().prepareStatement(query);
+
+            cursor = stmt.executeQuery();
+            cursor.next();
+
+            FL_WHATSAPP = cursor.getInt(1);
+            cursor.close();
+            stmt.close();
+//            connDao.commit();
+//            connNew.release();
+        } catch (Exception exc) {
+            Logger.printException(exc);
+
+        }
+        return FL_WHATSAPP;
+    }
+
+    public synchronized ArrayList<String> getJobString() {
+
+        ArrayList<String> idJobs = new ArrayList<String>();
+        PreparedStatement stmt = null;
+        ResultSet cursor = null;
+        try {
+
+            //new changes
+            String getPhotoPda = "SELECT ID_INTERVENTION FROM T_INTERVENTIONS";
+
+            stmt = getConnectionObj().prepareStatement(getPhotoPda);
+
+            cursor = stmt.executeQuery();
+
+            String idJob = null;
+
+            while (cursor.next()) {
+
+
+                idJob = cursor.getString(1);
+                idJobs.add(idJob);
+            }
+
+        } catch (Exception exc) {
+            Logger.printException(exc);
+            exc.printStackTrace();
+        } finally {
+            if (cursor != null) {
+                try {
+                    cursor.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            try {
+                connDao.commit();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        return idJobs;
+    }
+
+    public synchronized ArrayList<String> getPhotoIdString() {
+
+        ArrayList<String> idPhotos = new ArrayList<String>();
+        PreparedStatement stmt = null;
+        ResultSet cursor = null;
+        try {
+
+            //new changes
+            String getPhotoPda = "SELECT ID_INTERVENTION FROM T_PHOTOS_PDA";
+            stmt = getConnectionObj().prepareStatement(getPhotoPda);
+
+            cursor = stmt.executeQuery();
+
+            String idPhoto = null;
+
+            while (cursor.next()) {
+
+
+                idPhoto = cursor.getString(1);
+                idPhotos.add(idPhoto);
+            }
+
+        } catch (Exception exc) {
+            Logger.printException(exc);
+            exc.printStackTrace();
+        } finally {
+            if (cursor != null) {
+                try {
+                    cursor.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            try {
+                connDao.commit();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        return idPhotos;
+    }
+
+    public synchronized boolean deleteImage_weekly(String idInterv) {
+//        try {
+//                executeDDL("DELETE FROM T_PHOTOS_PDA WHERE ID_INTERVENTION='"
+//                        + idInterv);
+//            return true;
+//        } catch (Exception e) {
+//            Logger.printException(e);
+//            return false;
+//        }
+
+
+        boolean result = false;
+        PreparedStatement ps = null;
+        try {
+
+            ps = getConnectionObj()
+                    .prepareStatement("DELETE FROM T_PHOTOS_PDA WHERE ID_INTERVENTION = ?");
+            ps.set(1, idInterv);
+
+            ps.execute();
+
+            result = true;
+        } catch (Exception e) {
+            Logger.printException(e);
+            result = false;
+        }
+        return  result;
+    }
+
+    public synchronized byte[] getPhotoImageByte(String comment, String idInter, int iteration) {
+
+
+        String query = "SELECT PHOTO_PDA, URL FROM T_PHOTOS_PDA WHERE ID_INTERVENTION = '"
+                + idInter
+                + "'"
+                + " AND  COMMENTAIRE_PHOTO_PDA = '"
+                + comment
+                + "'"
+                + " AND ITERATION =" + iteration;
+        //byte[] image = null;
+        hybridImageData data = new hybridImageData();
+
+        PreparedStatement stmt = null;
+        ResultSet cursor = null;
+        try {
+            //Connection connection = getConnectionObj();
+            stmt = getConnectionObj().prepareStatement(query);
+            cursor = stmt.executeQuery();
+            while (cursor.next()) {
+                data.res = cursor.getBytes(1);
+                data.awsUrl = cursor.getString(2);
+            }
+//            cursor.close();
+//            stmt.close();
+            //connection.commit();
+//            connDao.commit();
+            //connection.release();
+        } catch (Exception e) {
+            Logger.printException(e);
+
+        } finally {
+            if (cursor != null) {
+                try {
+                    cursor.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            try {
+                connDao.commit();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return data.res;
+
+    }
+
+    public synchronized String getPhotoImageUrl(String comment, String idInter, int iteration) {
+
+
+        String query = "SELECT PHOTO_PDA, URL FROM T_PHOTOS_PDA WHERE ID_INTERVENTION = '"
+                + idInter
+                + "'"
+                + " AND  COMMENTAIRE_PHOTO_PDA = '"
+                + comment
+                + "'"
+                + " AND ITERATION =" + iteration;
+        //byte[] image = null;
+        hybridImageData data = new hybridImageData();
+
+        PreparedStatement stmt = null;
+        ResultSet cursor = null;
+        try {
+            //Connection connection = getConnectionObj();
+            stmt = getConnectionObj().prepareStatement(query);
+            cursor = stmt.executeQuery();
+            while (cursor.next()) {
+                data.res = cursor.getBytes(1);
+                data.awsUrl = cursor.getString(2);
+            }
+//            cursor.close();
+//            stmt.close();
+            //connection.commit();
+//            connDao.commit();
+            //connection.release();
+        } catch (Exception e) {
+            Logger.printException(e);
+
+        } finally {
+            if (cursor != null) {
+                try {
+                    cursor.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            try {
+                connDao.commit();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return data.awsUrl;
+
+    }
     public synchronized String getClientLastName(int clientId) {
 
         String clientFirstName = null;
@@ -38660,59 +40038,27 @@ public class Dao {
 //        }
 //    }
 
-    public synchronized ArrayList<Invoice_Quotation_Items_Beans> isItemPreset(String idRemortFacture,int idTaxRate,double total,String itemName,String description) {
+    public synchronized String getClientName(String clientId) {
 
-        ArrayList<Invoice_Quotation_Items_Beans> invoiceQuotationList = new ArrayList<Invoice_Quotation_Items_Beans>();
-        PreparedStatement stmt = null;
+        String clientFirstName = null;
+
+        String query;
+
+        query = "SELECT NM_CLIENT " +
+                "FROM T_CLIENTS "
+                + " WHERE ID_CLIENT =" + clientId + "";
+        //Connection connection = getConnectionObj();
+        PreparedStatement preparedStatement = null;
         ResultSet cursor = null;
         try {
-
-//            //new changes
-//            String sql = "SELECT * FROM T_LIGNES_FACTURE "
-//                    +"WHERE ID_REMOTE_FACTURE = '" + idRemortFacture + "'"
-//                    +"AND ID_PIECE ='" + idPiece + "'";
-
-//            String sql=   "SELECT * FROM T_LIGNES_FACTURE "
-//                    +"WHERE ID_REMOTE_FACTURE = '" + idRemortFacture + "'"
-//                                        +"AND (REF_LIGNE !='" + itemName + "'"
-//            +"AND DESCR_LIGNE !='" + description + "'"
-//                    +")";
-
-            String sql= "SELECT * FROM T_LIGNES_FACTURE WHERE ID_REMOTE_FACTURE = '" + idRemortFacture +"'"+
-                    "AND ID_TAXRATE = '" + idTaxRate +"'"+
-                    "AND TOTAL_HT = '" + total +"'" +
-                    "AND REF_LIGNE LIKE '" + itemName +"'" +
-                    "AND DESCR_LIGNE LIKE '" + description +"'" ;
-
-            stmt = getConnectionObj().prepareStatement(sql);
-
-            cursor = stmt.executeQuery();
-
-            Invoice_Quotation_Items_Beans invoiceQuotationBeans = null;
-
+            preparedStatement = getConnectionObj().prepareStatement(query);
+            cursor = preparedStatement.executeQuery();
             while (cursor.next()) {
-                invoiceQuotationBeans = new Invoice_Quotation_Items_Beans();
-                invoiceQuotationBeans.setItem(cursor.getString(1));
-                invoiceQuotationBeans.setDescription(cursor.getString(2));
-                invoiceQuotationBeans.setUnitPrice(cursor.getDouble(3));
-                invoiceQuotationBeans.setQuantity(cursor.getDouble(4));
-                invoiceQuotationBeans.setTax(cursor.getDouble(5));
-                invoiceQuotationBeans.setOrder(cursor.getInt(6));
-                invoiceQuotationBeans.setDiscount(cursor.getDouble(8));
-                invoiceQuotationBeans.setTotal(cursor.getDouble(9));
-                invoiceQuotationBeans.setTaxValue(cursor.getDouble(10));
-                invoiceQuotationBeans.setTotalWIthTax(cursor.getDouble(11));
-                invoiceQuotationBeans.setId(cursor.getString(12));
-                invoiceQuotationBeans.setDescriptionItem(cursor.getString(16));
-                invoiceQuotationBeans.setTaxName(getTaxNameById(cursor.getInt(14)));
-                invoiceQuotationBeans.setPercent(cursor.getBoolean(18));
-                invoiceQuotationBeans.setIdTaxRate("" + cursor.getInt(14));
+                clientFirstName = cursor.getString(1);
 
-                invoiceQuotationList.add(invoiceQuotationBeans);
             }
-        } catch (Exception exc) {
-            Logger.printException(exc);
-            exc.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
         } finally {
             if (cursor != null) {
                 try {
@@ -38721,9 +40067,9 @@ public class Dao {
                     e.printStackTrace();
                 }
             }
-            if (stmt != null) {
+            if (preparedStatement != null) {
                 try {
-                    stmt.close();
+                    preparedStatement.close();
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -38735,156 +40081,183 @@ public class Dao {
             }
         }
 
-        return invoiceQuotationList;
+        return clientFirstName;
+
     }
-    public synchronized int getJobPoolSearchWithCount(String value) {
+
+    public synchronized String getClientRefCustomer(String clientId) {
+
+        String clientFirstName = null;
 
         String query;
-        int numberOfJob = 0;
-        PreparedStatement stmt = null;
+
+        query = "SELECT REF_CUSTOMER " +
+                "FROM T_CLIENTS "
+                + " WHERE ID_CLIENT =" + clientId + "";
+        //Connection connection = getConnectionObj();
+        PreparedStatement preparedStatement = null;
         ResultSet cursor = null;
         try {
+            preparedStatement = getConnectionObj().prepareStatement(query);
+            cursor = preparedStatement.executeQuery();
+            while (cursor.next()) {
+                clientFirstName = cursor.getString(1);
 
-            query = "SELECT COUNT(ID_INTERVENTION) "
-                    + "FROM T_INTERVENTIONS,TREF_TYPE_INTERVENTION "
-                    + "WHERE "
-                    + "T_INTERVENTIONS.ID_TYPE_INTERVENTION=TREF_TYPE_INTERVENTION.ID_TYPE_INTERVENTION "
-                    + "AND CD_STATUT_INTERV = "
-                    + KEYS.CurrentJobs.JOB_POOL_SCHEDULE + " "
-                    + "AND T_INTERVENTIONS.FL_POOL=1"
-                    +"AND (" +
-                    "TREF_TYPE_INTERVENTION.NM_TYPE_INTERVENTION LIKE '%" + value + "%' " +
-                    "OR NOM_CLIENT_INTERV LIKE '%" + value + "%' " +
-                    "OR REF_CUSTOMER LIKE '%" + value + "%'" +
-                    "OR NO_INT_CUST LIKE '%" + value + "%'" +
-                    " OR NOM_SITE_INTERV LIKE '%" + value + "%'"+
-                    " OR NOM_EQUIPEMENT_INTERV LIKE '%" + value + "%'"+
-                    ") ORDER BY NOM_CLIENT_INTERV";
-
-            stmt = getConnectionObj().prepareStatement(query);
-
-            cursor = stmt.executeQuery();
-
-            cursor.first();
-
-            numberOfJob = cursor.getInt(1);
-
-            cursor.close();
-            stmt.close();
-//            connDao.commit();
-
-        } catch (Exception exc) {
-            Logger.printException(exc);
-        }
-//        CurrentJobDataBean currentJobDataBean = new CurrentJobDataBean(
-//                currentJobsBeans, numberOfJob);
-        return numberOfJob;
-    }
-
-    public synchronized int get_FL_HORS_PROGRAMME() {
-        PreparedStatement stmt = null;
-        ResultSet cursor = null;
-        int FL_HORS_PROGRAMME = 0;
-
-        try {
-            String query="SELECT FL_HORS_PROGRAMME FROM T_CUSTOMERS ";
-
-            stmt = getConnectionObj().prepareStatement(query);
-
-            cursor = stmt.executeQuery();
-            cursor.next();
-
-            FL_HORS_PROGRAMME = cursor.getInt(1);
-            cursor.close();
-            stmt.close();
-//            connDao.commit();
-//            connNew.release();
-        } catch (Exception exc) {
-            Logger.printException(exc);
-
-        }
-        return FL_HORS_PROGRAMME;
-    }
-    public synchronized int get_FL_SUBC_JOB_CREATE() {
-        String query = "SELECT FL_SUBC_JOB_CREATE FROM TREF_GESTION_ACCES";
-        int FL_SUBC_JOB_CREATE = 0;
-        PreparedStatement stmt = null;
-        ResultSet cursor = null;
-
-        try {
-            stmt = getConnectionObj().prepareStatement(query);
-            cursor = stmt.executeQuery();
-
-            // Check if there is a result
-            if (cursor.next()) {
-                FL_SUBC_JOB_CREATE = cursor.getInt("FL_SUBC_JOB_CREATE");
             }
-        } catch (Exception exc) {
-            Logger.printException(exc);
+        } catch (Exception e) {
+            e.printStackTrace();
         } finally {
-            // Ensure resources are closed
-            try {
-                if (cursor != null) {
+            if (cursor != null) {
+                try {
                     cursor.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-                if (stmt != null) {
-                    stmt.close();
+            }
+            if (preparedStatement != null) {
+                try {
+                    preparedStatement.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-            } catch ( ULjException e) {
-                Logger.printException(e);
+            }
+            try {
+                connDao.commit();
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
 
-        return FL_SUBC_JOB_CREATE;
+        return clientFirstName;
+
     }
 
-
-    public synchronized int get_FL_SUBC_CLIENT_LIST() {
-        PreparedStatement stmt = null;
-        ResultSet cursor = null;
-        int FL_SUBC_CLIENT_LIST = 0;
-
+    public synchronized boolean updateParts(double quantity,double totalWithTax, String idRemortFacture,String itemName,String description, String idInterv) {
+        PreparedStatement ps = null;
+        boolean result;
         try {
-            String query="SELECT FL_SUBC_CLIENT_LIST FROM TREF_GESTION_ACCES ";
+            String qry = "UPDATE T_LIGNES_FACTURE SET QUANTITE = '" + quantity +"'"+", TOTAL_HT = '" + totalWithTax +"'"+
+                    ", TOTAL_TTC = '" + totalWithTax +"'"+
+                    "WHERE ID_REMOTE_FACTURE = '" + idRemortFacture +"'"+
+                    "AND ID_INTERVENTION = '" + idInterv +"'"+
+                    "AND REF_LIGNE LIKE '" + itemName +"'" +
+                    "AND DESCR_LIGNE LIKE '" + description +"'" ;
 
-            stmt = getConnectionObj().prepareStatement(query);
+            ps = getConnectionObj()
+                    .prepareStatement(qry);
 
-            cursor = stmt.executeQuery();
-            cursor.next();
-
-            FL_SUBC_CLIENT_LIST = cursor.getInt(1);
-            cursor.close();
-            stmt.close();
-//            connDao.commit();
-//            connNew.release();
-        } catch (Exception exc) {
-            Logger.printException(exc);
-
+            ps.execute();
+            result = true;
+        } catch (Exception e) {
+            Logger.printException(e);
+            result = false;
+        } finally {
+            if (ps != null) {
+                try {
+                    ps.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            try {
+                connDao.commit();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
-        return FL_SUBC_CLIENT_LIST;
+        return result;
     }
+    public synchronized String getEquipmentName(String epuipmentId) {
 
-    public synchronized int get_FL_LIST_CUSTOMERS() {
-        PreparedStatement stmt = null;
+        String clientFirstName = null;
+
+        String query;
+
+        query = "SELECT NM_EQUIPEMENT " +
+                "FROM T_EQUIPEMENTS_CLIENTS "
+                + " WHERE ID_EQUIPEMENT_CLIENT =" + epuipmentId + "";
+        //Connection connection = getConnectionObj();
+        PreparedStatement preparedStatement = null;
         ResultSet cursor = null;
-        int FL_LIST_CUSTOMERS = 0;
-
         try {
-            String query="SELECT FL_LIST_CUSTOMERS FROM TREF_GESTION_ACCES ";
+            preparedStatement = getConnectionObj().prepareStatement(query);
+            cursor = preparedStatement.executeQuery();
+            while (cursor.next()) {
+                clientFirstName = cursor.getString(1);
 
-            stmt = getConnectionObj().prepareStatement(query);
-
-            cursor = stmt.executeQuery();
-            cursor.next();
-
-            FL_LIST_CUSTOMERS = cursor.getInt(1);
-            cursor.close();
-            stmt.close();
-        } catch (Exception exc) {
-            Logger.printException(exc);
-
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (cursor != null) {
+                try {
+                    cursor.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if (preparedStatement != null) {
+                try {
+                    preparedStatement.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            try {
+                connDao.commit();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
-        return FL_LIST_CUSTOMERS;
+
+        return clientFirstName;
+
     }
 
+    public synchronized String getEquipmentRefCustomer(String epuipmentId) {
+
+        String clientFirstName = null;
+
+        String query;
+
+        query = "SELECT REF_CUSTOMER " +
+                "FROM T_EQUIPEMENTS_CLIENTS "
+                + " WHERE ID_EQUIPEMENT_CLIENT =" + epuipmentId + "";
+        //Connection connection = getConnectionObj();
+        PreparedStatement preparedStatement = null;
+        ResultSet cursor = null;
+        try {
+            preparedStatement = getConnectionObj().prepareStatement(query);
+            cursor = preparedStatement.executeQuery();
+            while (cursor.next()) {
+                clientFirstName = cursor.getString(1);
+
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (cursor != null) {
+                try {
+                    cursor.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if (preparedStatement != null) {
+                try {
+                    preparedStatement.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            try {
+                connDao.commit();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        return clientFirstName;
+
+    }
 }
